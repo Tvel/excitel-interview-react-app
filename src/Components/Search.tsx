@@ -1,6 +1,7 @@
 import React, {useState} from "react";
-import {Country, fetchCountriesByName} from "../Services/CountriesService";
-import useDebounce from "../Hooks/useDebounce";
+import {fetchCountriesByName} from "../Services/CountriesService";
+import {useDebounce} from "../Hooks";
+import {Country} from "../Models";
 
 export function Search({ onError , onSelect} : {
                                onError: (error: any) => void,

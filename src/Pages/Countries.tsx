@@ -1,23 +1,10 @@
 import React, {useReducer, useState} from 'react';
 import './Countries.css';
-import {Country, fetchCountries} from "../Services/CountriesService";
-import {sortBy, Sorting} from "../Services/SortService";
-import useEffectOnce from "../Hooks/useEffectOnce";
-import {CountriesTable} from "../Components/CountriesTable";
-import {Search} from "../Components/Search";
-import {Modal} from "../Components/Modal";
-
-export interface CountriesState {
-    loading: boolean,
-    countries: Country[],
-    displayedCountries: Country[],
-    error: boolean,
-    errorMessage: string|null,
-    sort: {
-        field: string|null,
-        state: Sorting
-    }
-}
+import {fetchCountries} from "../Services/CountriesService";
+import {sortBy} from "../Services/SortService";
+import {useEffectOnce} from "../Hooks";
+import {CountriesTable, Search, Modal} from "../Components";
+import {Country, CountriesState, Sorting} from "../Models";
 
 const initialCountriesState : CountriesState = {
     loading: true,

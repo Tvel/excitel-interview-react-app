@@ -1,9 +1,9 @@
 import './CountriesTable.css';
-import {Country} from "../Services/CountriesService";
-import {getNextSorting, Sorting} from "../Services/SortService";
+import {getNextSorting} from "../Services/SortService";
 import React, {useEffect, useState} from "react";
-import {CountriesState} from "../Pages/Countries";
 import {TableRow} from "./TableRow";
+import {TablePagination} from "./TablePagination";
+import {Country, CountriesState, Sorting, Pagination} from "../Models";
 
 export function CountriesTable({ countriesData, onLongPress, onSort, onFilter }: {
                                     countriesData: CountriesState,
@@ -11,12 +11,18 @@ export function CountriesTable({ countriesData, onLongPress, onSort, onFilter }:
                                     onSort: (field: string, state: Sorting) => void,
                                     onFilter: (filter: string) => void
 }) {
+    const calcMaxPage : (pageSize: number) => number = (pageSize) => Math.max(1, Math.floor(countriesData.displayedCountries.length / pageSize))
+
     const [filter, setFilter] = useState("")
-    const [pagination, setPagination] = useState({ page: 1, valuesPerPage: 5});
+    const [pagination, setPagination] = useState<Pagination>({ page: 1, pageSize: 5, maxPage: calcMaxPage(5)});
 
     useEffect(() => {
         onFilter(filter)
-    }, [filter])
+    }, [filter, onFilter])
+
+    useEffect(() => {
+        setPagination({...pagination, page: 1, maxPage: calcMaxPage(pagination.pageSize) })
+    }, [countriesData.displayedCountries])
 
     const getSortSymbol = (matchField: string): string => {
         if (countriesData.sort.field === matchField) {
@@ -39,18 +45,27 @@ export function CountriesTable({ countriesData, onLongPress, onSort, onFilter }:
         </button>
     )
 
+    const setPage = (page: number) => {
+        if(page < 1) page = 1;
+        let maxPage = pagination.maxPage
+        if(page > maxPage) page = maxPage;
+
+        setPagination({...pagination, page: page})
+    }
+
     return (
         <>
             <div className="top-table">
                 Filter Table: <input value={filter} type="text" onChange={(e)=> setFilter(e.target.value)} />
                 Page Size:
-                <select value={pagination.valuesPerPage} onChange={(ev) => setPagination({...pagination, valuesPerPage: Number(ev.target.value)})}>
+                <select value={pagination.pageSize} onChange={(ev) => setPagination({...pagination, pageSize: Number(ev.target.value), maxPage: calcMaxPage(Number(ev.target.value)) })}>
                     <option value="5">5</option>
                     <option value="10">10</option>
                     <option value="20">20</option>
                     <option value="50">50</option>
                     <option value="100">100</option>
                 </select>
+                <TablePagination pagination={pagination} setPage={setPage} />
             </div>
             <table>
                 <thead>
@@ -66,7 +81,7 @@ export function CountriesTable({ countriesData, onLongPress, onSort, onFilter }:
                 </thead>
                 <tbody>
                 {countriesData.displayedCountries
-                    .slice((pagination.page - 1) * pagination.valuesPerPage, pagination.page * pagination.valuesPerPage)
+                    .slice((pagination.page - 1) * pagination.pageSize, pagination.page * pagination.pageSize)
                     .map((country) =>
                         <TableRow
                             key={country.code}
@@ -89,7 +104,7 @@ export function CountriesTable({ countriesData, onLongPress, onSort, onFilter }:
                 </tbody>
             </table>
             <div className="bot-table">
-                <div>todo pagination</div>
+                <TablePagination pagination={pagination} setPage={setPage} />
             </div>
         </>
     )

@@ -1,8 +1,8 @@
+import {Sorting} from "../Models/Sorting";
+
 interface IStringIndex {
     [key: string]: any;
 }
-
-export type Sorting = "none"|"asc"|"desc"
 
 export function getNextSorting(currentSorting: Sorting) {
     switch (currentSorting) {
