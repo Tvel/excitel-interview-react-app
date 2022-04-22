@@ -1,12 +1,16 @@
-import React, {useEffect, useReducer, useState} from 'react';
+import React, {useReducer, useState} from 'react';
 import './Countries.css';
-import {Country, fetchCountries, fetchCountriesByName} from "../Services/CountriesService";
-import {getNextSorting, sortBy, Sorting} from "../Services/SortService";
-import useDebounce from "../Hooks/useDebounce";
+import {Country, fetchCountries} from "../Services/CountriesService";
+import {sortBy, Sorting} from "../Services/SortService";
+import useEffectOnce from "../Hooks/useEffectOnce";
+import {CountriesTable} from "../Components/CountriesTable";
+import {Search} from "../Components/Search";
+import {Modal} from "../Components/Modal";
 
-interface CountriesState {
+export interface CountriesState {
     loading: boolean,
     countries: Country[],
+    displayedCountries: Country[],
     error: boolean,
     errorMessage: string|null,
     sort: {
@@ -20,6 +24,7 @@ const initialCountriesState : CountriesState = {
     error: false,
     errorMessage: null,
     countries: [],
+    displayedCountries: [],
     sort: {
         field: null,
         state: "none"
@@ -27,31 +32,35 @@ const initialCountriesState : CountriesState = {
 }
 
 type CountriesAction =
-    | { type: 'fetch' }
+    | { type: 'fetchStart' }
     | { type: 'fetched', result: Country[] }
     | { type: 'error', error: string }
-    | { type: 'sort', field: string, state: Sorting };
+    | { type: 'sort', field: string, state: Sorting }
+    | { type: 'filter', name: string };
 
 function reducer(state: CountriesState, action: CountriesAction) : CountriesState {
     switch (action.type) {
-        case "fetch":
+        case "fetchStart":
             return {...state, loading: true, error: false};
         case "fetched":
             if(state.sort.state === "none" || state.sort.field === null) {
-                return {...state, countries: action.result, loading: false, error: false, sort: {field: null, state: "none"}}
+                return {...state, countries: action.result, displayedCountries: action.result, loading: false, error: false, sort: {field: null, state: "none"}}
             } else {
-                return {...state, countries: sortBy(action.result, state.sort.field, state.sort.state), loading: false, error: false, sort: {field: state.sort.field, state: state.sort.state}
+                return {...state, countries: action.result, displayedCountries: sortBy(action.result, state.sort.field, state.sort.state), loading: false, error: false, sort: {field: state.sort.field, state: state.sort.state}
                 };
             }
         case "error":
             return {...state, loading: false, error: true, errorMessage: action.error};
         case "sort":
             if(action.state === "none") {
-                return {...state, sort: {field: null, state: "none"}}
+                return {...state, displayedCountries: state.displayedCountries, sort: {field: null, state: "none"}}
             } else {
-                return {...state, countries: sortBy(state.countries, action.field, action.state), sort: {field: action.field, state: action.state}
+                return {...state, displayedCountries: sortBy(state.displayedCountries, action.field, action.state), sort: {field: action.field, state: action.state}
                 };
             }
+        case "filter":
+            if(action.name === "") return {...state, displayedCountries: state.countries }
+            return {...state, displayedCountries: state.countries.filter((c) => c.name.toLowerCase().includes(action.name.toLowerCase()))}
         default:
             return state;
     }
@@ -59,76 +68,20 @@ function reducer(state: CountriesState, action: CountriesAction) : CountriesStat
 
 function Countries() {
     const [countriesData, dispatch] = useReducer(reducer, initialCountriesState);
-    const [pagination, setPagination] = useState({ page: 1, valuesPerPage: 10});
-    const [search, setSearch] = useState("")
+    const [countryModal, setCountryModal] = useState<{show: boolean, country: Country|null}>({show: false, country: null});
 
-    useDebounce(() => {
-        dispatch({ type: 'fetch' });
-        fetchCountriesByName(search).then(
-            (results) => { dispatch({ type: 'fetched', result: results }); },
-            (error) => dispatch({ type: 'error', error }),
-        )
-    }, 1000, [search])
-
-    useEffect(() => {
-        dispatch({ type: 'fetch' });
+    function loadCountries() : void {
+        dispatch({ type: 'fetchStart' });
         fetchCountries().then(
             (results) => { dispatch({ type: 'fetched', result: results }); },
             (error) => dispatch({ type: 'error', error }),
         )
-    }, []);
-
-    const countriesRows = countriesData.countries
-        .slice((pagination.page - 1) * pagination.valuesPerPage, pagination.page * pagination.valuesPerPage)
-        .map((country) =>
-            <tr key={country.code}>
-                <td>{country.code}</td>
-                <td>{country.name}</td>
-                <td>{country.capitalName}</td>
-                <td>{country.population}</td>
-                <td>{country.region}</td>
-                <td>{country.subregion}</td>
-                <td><img src={country.flag}  alt="flag"/></td>
-            </tr>
-    );
-
-    const getSortSymbol = (matchField: string): string => {
-        if(countriesData.sort.field === matchField) {
-            switch (countriesData.sort.state) {
-                case "asc": return "↑";
-                case "desc": return "↓";
-                default:
-                    return " ";
-            }
-        } else {
-            return " ";
-        }
     }
+    useEffectOnce(loadCountries);
 
-    const sortableColumnHeader = (field: string, displayName: string) => (
-        <button type="button" onClick={() => dispatch({ type: 'sort', field: field, state: countriesData.sort.field === field ? getNextSorting(countriesData.sort.state) : "asc" })}>
-            {displayName + getSortSymbol(field)}
-        </button>
-    )
-
-    const countriesTable = (
-        <table>
-            <thead>
-            <tr>
-                <th>{sortableColumnHeader('code', "Code")}</th>
-                <th>{sortableColumnHeader('name', "Name")}</th>
-                <th>{sortableColumnHeader('capitalName', "Capital")}</th>
-                <th>{sortableColumnHeader('population', "Population")}</th>
-                <th>{sortableColumnHeader('region', "Region")}</th>
-                <th>{sortableColumnHeader('subregion', "Subregion")}</th>
-                <th>Flag</th>
-            </tr>
-            </thead>
-            <tbody>
-                {countriesRows}
-            </tbody>
-        </table>
-    );
+    function showModal(c: Country): void {
+        setCountryModal({show: true, country: c})
+    }
 
     const displayLoading = (
         "Loading please wait"
@@ -140,22 +93,36 @@ function Countries() {
 
     return (
         <div className="countries">
-            <div className="top-nav">
-                search: <input value={search} type="text" onChange={(e)=> setSearch(e.target.value)} />
-                page size: <select value={pagination.valuesPerPage} onChange={(ev) => setPagination({...pagination, valuesPerPage: Number(ev.target.value)})}>
-                    <option value="10">10</option>
-                    <option value="20">20</option>
-                    <option value="50">50</option>
-                    <option value="100">100</option>
-                </select>
-            </div>
-            { countriesData.error ? displayError : (countriesData.loading ? displayLoading : countriesTable)}
-            <div className="bot-nav">
-
-            </div>
+            <Search
+                onError={(error) => dispatch({ type: 'error', error })}
+                onSelect={showModal}
+            />
+            { countriesData.error ? displayError : (countriesData.loading ? displayLoading :
+                <CountriesTable
+                    countriesData={countriesData??[]}
+                    onLongPress={showModal}
+                    onSort={ (field, state) => dispatch({ type: 'sort', field: field, state: state })}
+                    onFilter={(filter) => dispatch({ type: 'filter', name: filter })}
+                /> )}
+            <Modal show={countryModal.show} handleClose={() => setCountryModal({show: false, country: null})}>
+                <div className="countryModal">
+                    <h4>Code:</h4> <p>{countryModal.country?.code}</p>
+                    <h4>Name:</h4> <p>{countryModal.country?.name}</p>
+                    <h4>CapitalName:</h4> <p>{countryModal.country?.capitalName}</p>
+                    <h4>Population:</h4> <p>{countryModal.country?.population}</p>
+                    <h4>Region:</h4> <p> {countryModal.country?.region}</p>
+                    <h4>Subregion:</h4> <p> {countryModal.country?.subregion}</p>
+                    <h4>Flag:</h4> <img src={countryModal.country?.flag} alt="flag" />
+                </div>
+            </Modal>
+            <Modal show={countriesData.error} handleClose={() => loadCountries()}>
+                <h3>{displayError}</h3>
+            </Modal>
         </div>
     );
 }
+
+
 
 export default Countries;
 
