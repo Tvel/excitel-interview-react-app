@@ -15,7 +15,8 @@ const initialCountriesState : CountriesState = {
     sort: {
         field: null,
         state: "none"
-    }
+    },
+    filter: ""
 }
 
 type CountriesAction =
@@ -46,8 +47,9 @@ function reducer(state: CountriesState, action: CountriesAction) : CountriesStat
                 };
             }
         case "filter":
-            if(action.name === "") return {...state, displayedCountries: state.countries }
-            return {...state, displayedCountries: state.countries.filter((c) => c.name.toLowerCase().includes(action.name.toLowerCase()))}
+            if(action.name === state.filter) return state;
+            if(action.name === "") return {...state, displayedCountries: state.countries, filter: "" }
+            return {...state, displayedCountries: state.countries.filter((c) => c.name.toLowerCase().includes(action.name.toLowerCase())), filter: action.name}
         default:
             return state;
     }
@@ -86,7 +88,8 @@ function Countries() {
             />
             { countriesData.error ? displayError : (countriesData.loading ? displayLoading :
                 <CountriesTable
-                    countriesData={countriesData??[]}
+                    countries={countriesData.displayedCountries}
+                    sort={countriesData.sort}
                     onLongPress={showModal}
                     onSort={ (field, state) => dispatch({ type: 'sort', field: field, state: state })}
                     onFilter={(filter) => dispatch({ type: 'filter', name: filter })}

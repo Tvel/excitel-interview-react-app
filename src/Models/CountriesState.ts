@@ -10,5 +10,6 @@ export interface CountriesState {
     sort: {
         field: string | null,
         state: Sorting
-    }
+    },
+    filter: string
 }

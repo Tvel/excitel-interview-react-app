@@ -3,15 +3,20 @@ import {getNextSorting} from "../Services/SortService";
 import React, {useEffect, useState} from "react";
 import {TableRow} from "./TableRow";
 import {TablePagination} from "./TablePagination";
-import {Country, CountriesState, Sorting, Pagination} from "../Models";
+import {Country, Sorting, Pagination} from "../Models";
 
-export function CountriesTable({ countriesData, onLongPress, onSort, onFilter }: {
-                                    countriesData: CountriesState,
-                                    onLongPress: (country: Country) => void,
-                                    onSort: (field: string, state: Sorting) => void,
-                                    onFilter: (filter: string) => void
-}) {
-    const calcMaxPage : (pageSize: number) => number = (pageSize) => Math.max(1, Math.floor(countriesData.displayedCountries.length / pageSize))
+export function CountriesTable({ countries, sort, onLongPress, onSort, onFilter }: {
+        countries: Country[],
+        sort: {
+            field: string | null,
+            state: Sorting
+        },
+        onLongPress: (country: Country) => void,
+        onSort: (field: string, state: Sorting) => void,
+        onFilter: (filter: string) => void
+    }) {
+
+    const calcMaxPage : (pageSize: number) => number = (pageSize) => Math.max(1, Math.floor(countries.length / pageSize))
 
     const [filter, setFilter] = useState("")
     const [pagination, setPagination] = useState<Pagination>({ page: 1, pageSize: 5, maxPage: calcMaxPage(5)});
@@ -22,11 +27,11 @@ export function CountriesTable({ countriesData, onLongPress, onSort, onFilter }:
 
     useEffect(() => {
         setPagination({...pagination, page: 1, maxPage: calcMaxPage(pagination.pageSize) })
-    }, [countriesData.displayedCountries])
+    }, [countries])
 
     const getSortSymbol = (matchField: string): string => {
-        if (countriesData.sort.field === matchField) {
-            switch (countriesData.sort.state) {
+        if (sort.field === matchField) {
+            switch (sort.state) {
                 case "asc":
                     return "↑";
                 case "desc":
@@ -40,7 +45,7 @@ export function CountriesTable({ countriesData, onLongPress, onSort, onFilter }:
     }
 
     const sortableColumnHeader = (field: string, displayName: string) => (
-        <button type="button" onClick={() => onSort(field, countriesData.sort.field === field ? getNextSorting(countriesData.sort.state) : "asc")}>
+        <button type="button" onClick={() => onSort(field, sort.field === field ? getNextSorting(sort.state) : "asc")}>
             {displayName + getSortSymbol(field)}
         </button>
     )
@@ -80,7 +85,7 @@ export function CountriesTable({ countriesData, onLongPress, onSort, onFilter }:
                 </tr>
                 </thead>
                 <tbody>
-                {countriesData.displayedCountries
+                {countries
                     .slice((pagination.page - 1) * pagination.pageSize, pagination.page * pagination.pageSize)
                     .map((country) =>
                         <TableRow
